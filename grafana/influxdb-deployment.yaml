@@ -1,0 +1,31 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: influxdb
+  namespace: monitoring
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        task: monitoring
+        k8s-app: influxdb
+    spec:
+      volumes:
+      - name: ceph-rbd-influxdb
+        persistentVolumeClaim:
+          claimName: grafana-claim
+        #emptyDir: {}
+        #hostPath:
+          #path: /srv/influxdb
+        #nfs:
+          #server: 185.19.29.253
+          #path: /export/influxdb
+      containers:
+      - name: influxdb
+        image: kubernetes/heapster_influxdb:v0.6
+        volumeMounts:
+        - mountPath: /data
+          name: ceph-rbd-influxdb
+      #nodeSelector:     
+        #role: influxdb
