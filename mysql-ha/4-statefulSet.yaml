@@ -1,0 +1,273 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: mysql
+  namespace: mysql-ha
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: mysql
+  serviceName: mysql-headless
+  template:
+    metadata:
+      labels:
+        app: mysql
+    spec:
+      terminationGracePeriodSeconds: 8      
+      initContainers:
+      - command:
+        - rm
+        - -fr
+        - /var/lib/mysql/lost+found
+        image: busybox
+        name: remove-lost-found
+        volumeMounts:
+        - mountPath: /var/lib/mysql
+          name: user-data
+      - command:
+        - bash
+        - -c
+        - |
+          set -e
+          [[ `hostname` =~ -([0-9]+)$ ]] || exit 1
+          ordinal=${BASH_REMATCH[1]}
+          echo [mysqld] > /mnt/conf.d/server-id.cnf
+          echo server-id  = $((100 + $ordinal)) >> /mnt/conf.d/server-id.cnf
+          if [[ $ordinal -eq 0 ]]; then
+            cp /mnt/config-map/mysql.cnf /mnt/conf.d/master.cnf
+          else
+            cp /mnt/config-map/mysql.cnf /mnt/conf.d/slave.cnf
+            echo super_read_only  = ON >> /mnt/conf.d/slave.cnf
+          fi
+        image: mysql:5.7
+        name: init-mysql
+        volumeMounts:
+        - mountPath: /mnt/config-map/mysql.cnf
+          name: mycnf
+          subPath: mysql.cnf
+        - mountPath: /mnt/conf.d
+          name: cnf
+      - command:
+        - bash
+        - -c
+        - |
+          set -e
+          # env pods name
+          tmphost=`hostname`
+          myhost=${tmphost%-*}
+      
+          # Skip the clone if data already exists.
+          [[ -d /var/lib/mysql/mysql ]] && exit 0
+          # Skip the clone on master (ordinal index 0).
+          [[ `hostname` =~ -([0-9]+)$ ]] || exit 1
+          ordinal=${BASH_REMATCH[1]}
+          [[ $ordinal -eq 0 ]] && exit 0
+      
+          # Clone data from previous peer.
+          ncat --recv-only $myhost-$(($ordinal-1)).$myhost-headless 3307 | xbstream -x -C /var/lib/mysql
+      
+          # Prepare the backup.
+          xtrabackup --prepare --target-dir=/var/lib/mysql
+        image: jicki/xtrabackup:1.0
+        name: clone-mysql
+        volumeMounts:
+        - mountPath: /var/lib/mysql
+          name: user-data
+      securityContext:
+        fsGroup: 999
+        runAsUser: 999
+      containers:
+      - name: metrics
+        ports:
+        - containerPort: 9104
+          name: metrics        
+        image: prom/mysqld-exporter
+        imagePullPolicy: Always        
+        readinessProbe:
+          httpGet:
+            port: metrics
+            path: /metrics
+            httpHeaders:
+          initialDelaySeconds: 60
+          periodSeconds: 5
+        livenessProbe:
+          httpGet:
+            port: metrics
+            path: /metrics
+            httpHeaders:
+          initialDelaySeconds: 90
+          periodSeconds: 10                        
+        resources:
+          limits:
+            cpu: 100m
+            memory: 512Mi
+          requests:
+            cpu: 10m
+            memory: 64Mi
+        command:
+        - /bin/sh
+        - -c
+        - |
+          password_aux="${MYSQL_ROOT_PASSWORD:-}"
+          DATA_SOURCE_NAME="root:${password_aux}@(localhost:3306)/" /bin/mysqld_exporter
+        envFrom:
+        - secretRef:
+            name: myenv
+      - name: mysql
+        ports:
+        - containerPort: 3306
+          name: tcp        
+        image: mysql:5.7
+        imagePullPolicy: Always        
+        readinessProbe:
+          exec:    
+            command:
+            - sh
+            - -c
+            - |
+              password_aux="${MYSQL_ROOT_PASSWORD:-}"
+              mysqladmin ping -u root -p$password_aux
+          initialDelaySeconds: 60
+          periodSeconds: 5
+        livenessProbe:
+          exec:    
+            command:
+            - sh
+            - -c
+            - |
+              password_aux="${MYSQL_ROOT_PASSWORD:-}"
+              mysqladmin ping -u root -p$password_aux
+          initialDelaySeconds: 90
+          periodSeconds: 10        
+        env:
+        - name: "MYSQL_DATABASE"
+          value: "mysql_demo"
+        - name: "MYSQL_USER"
+          value: "mysql_demo"        
+        volumeMounts:
+        - mountPath: /etc/mysql/conf.d
+          name: cnf
+        - mountPath: /mnt/config-map
+          name: mycnf
+        - mountPath: /var/lib/mysql
+          name: user-data        
+        resources:
+          limits:
+            cpu: 500m
+            memory: 2048Mi
+          # overwritten requests
+          requests:
+            cpu: 500m
+            memory: 1024Mi                        
+        envFrom:
+        - secretRef:
+            name: myenv
+      - name: xtrabackup
+        ports:
+        - containerPort: 3307
+          name: xtrabackup        
+        image: jicki/xtrabackup:1.0
+        imagePullPolicy: Always        
+        readinessProbe:
+          exec:    
+            command:
+            - echo
+            - OK
+          initialDelaySeconds: 30
+          periodSeconds: 5
+        livenessProbe:
+          exec:    
+            command:
+            - echo
+            - OK
+          initialDelaySeconds: 60
+          periodSeconds: 10                
+        volumeMounts:
+        - mountPath: /var/lib/mysql
+          name: user-data        
+        resources:
+          limits:
+            cpu: 100m
+            memory: 512Mi
+          requests:
+            cpu: 10m
+            memory: 64Mi
+        command:
+        - bash
+        - -c
+        - |
+          set -e
+          password_aux="${MYSQL_ROOT_PASSWORD:-}"
+          cd /var/lib/mysql
+
+          # Determine binlog position of cloned data, if any.
+          if [[ -f xtrabackup_slave_info && "x$(<xtrabackup_slave_info)" != "x" ]]; then
+            # XtraBackup already generated a partial "CHANGE MASTER TO" query
+            # because we're cloning from an existing slave. (Need to remove the tailing semicolon!)
+            cat xtrabackup_slave_info > change_master_to.sql.in
+            cat change_master_to.sql.in
+            # cat xtrabackup_slave_info | sed -E 's/;$//g' > change_master_to.sql.in
+            # Ignore xtrabackup_binlog_info in this case (it's useless).
+            rm -f xtrabackup_slave_info xtrabackup_binlog_info
+
+          # ref: https://www.percona.com/doc/percona-xtrabackup/2.4/xtrabackup_bin/working_with_binary_logs.html
+          elif [[ -f xtrabackup_binlog_info ]]; then
+            # We're cloning directly from master. Parse binlog position.
+            LOG_FILE=`cat xtrabackup_binlog_info | awk '{print $1}'` || exit 1
+            LOG_POS=`cat xtrabackup_binlog_info |awk '{print $2}'` || exit 1
+            GTID_PURGED=`cat xtrabackup_binlog_info |awk '{print $3}'` || exit 1
+            rm -f xtrabackup_binlog_info xtrabackup_slave_info
+
+            # echo "CHANGE MASTER TO MASTER_LOG_FILE='${LOG_FILE}',\
+            #   MASTER_LOG_POS=${LOG_POS}" > change_master_to.sql.in
+
+            echo "SET GLOBAL gtid_purged='${GTID_PURGED}'; \
+                  CHANGE MASTER TO MASTER_AUTO_POSITION=1" > change_master_to.sql.in
+          fi
+
+          # Check if we need to complete a clone by starting replication.
+          if [[ -f change_master_to.sql.in ]]; then
+            echo "Waiting for mysqld to be ready (accepting connections)"
+            until mysql -uroot -p$password_aux -h 127.0.0.1 -e "SELECT 1"; do sleep 1; done
+
+            # reset master and stop slave
+            mysql -uroot -p$password_aux -h 127.0.0.1 \
+            -e "reset MASTER; STOP SLAVE;" || exit 1
+
+            echo "Initializing replication from clone position"
+            mysql -uroot -p$password_aux -h 127.0.0.1 \
+            -e "$(<change_master_to.sql.in), \
+                MASTER_HOST='mysql-0.mysql-headless', \
+                MASTER_USER='root', \
+                MASTER_PASSWORD='$password_aux', \
+                MASTER_CONNECT_RETRY=10; \
+              START SLAVE;" || exit 1
+            # In case of container restart, attempt this at-most-once.
+            mv change_master_to.sql.in change_master_to.sql.orig      
+          fi
+
+          # Start a server to send backups when requested by peers.
+          exec ncat --listen --keep-open --send-only --max-conns=1 3307 -c \
+            "xtrabackup --backup --slave-info --stream=xbstream --host=127.0.0.1 --user=root --password=$password_aux"
+        envFrom:
+        - secretRef:
+            name: myenv
+      volumes:
+      - name: cnf 
+        emptyDir: {}
+      - name: mycnf
+        configMap:
+          name: mycnf
+      #- name: user-data
+         #emptyDir: {}
+  volumeClaimTemplates:
+  - metadata:
+      name: user-data
+    spec:
+      accessModes:
+      - "ReadWriteOnce"
+      resources:
+        requests:
+          storage: "10Gi"
+      storageClassName: "gfs-delete"
