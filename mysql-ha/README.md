@@ -76,61 +76,6 @@
 
 ---
 
-## 部署 Mysql-ha
-
-
-* `ops-kubeconfig` 项目中.
-
-  * 进入 projects 目录
-
-  * 复制一份项目, 如: 
-
-	* cp -r mysql/demo-mysql-ha/  mysql/zabbix-mysql
-
-* 进入刚才复制的项目
-
-* 修改相关文件的配置信息. 
-
-  * Chart.yaml 文件 注意修改如下字段:
-
-    * 修改  name: zabbix-mysql
-
-  * values.{对应环境名称}.yaml 文件  注意修改如下字段:
-
-    * env.MYSQL_DATABASE  初始化创建 的数据库.
-
-    * env.MYSQL_USER  初始化创建 MYSQL_DATABASE 数据库的关联 用户.
-
-    * resources  限制 Mysql 运行的 cpu 以及 内存.
-
-    * persistence 是否开启挂载 文件系统, false 为 emptyDir .  
-
-    * config.ini 文件 修改如下字段:
-		
-      * namespace=zabbix  修改为与项目相同的 namespace .
----
-
-* `ops-env` 项目中
-
-  * 复制一份相同名称的项目配置信息. 如: 
-    * cp -r demo-mysql-ha  zabbix-mysql
-
-  * 进入刚才复制的项目 
-
-  * 修改配置相关的信息. 
-
-    * development/config/mysql.conf  -- Mysql 相关配置信息.
-
-	* development/env.enc.yml  --  Mysql 密码信息的加密文件. 需要自行重新创建. env.yml 包含如下信息: 
-
-	  * `MYSQL_ROOT_PASSWORD: 123445`    # mysql root 账户的密码
-	  * `MYSQL_PASSWORD: mysqldemo`      # 如上配置 env.MYSQL_USER 账户的密码
-	  * `TZ: UTC`                        # 时区
-
-  * 提交 pr 到 gitlab , 合并到 master
-
----
-
 
 ### 数据库调用
 
@@ -145,8 +90,7 @@
 
 1. 扩展从节点的数量
 
-  1. 修改 helm 模板文件 shared.yaml 中的 replicaCount 数量.
-  2. 使用 kubectl scale statefulset mysql --replicas=5 来直接扩展.
+  1. 使用 kubectl scale statefulset mysql --replicas=5 来直接扩展.
 
 ---
 
