@@ -1,0 +1,183 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgresql
+  namespace: postgresql-ha
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: postgresql
+  serviceName: postgresql-headless
+  template:
+    metadata:
+      labels:
+        app: postgresql
+    spec:
+      terminationGracePeriodSeconds: 8      
+      initContainers:
+      - command:
+        - sh
+        - -cx
+        - |
+          rm -rf /var/lib/postgresql/data/pgdata/lost+found
+        image: reg.deeproute.ai/deeproute-public/busybox
+        name: remove-lost-found
+        volumeMounts:
+        - mountPath: /var/lib/postgresql/data
+          name: user-data
+      - command:
+        - bash
+        - -c
+        - |
+          set -e
+          # env pods name
+          tmphost=`hostname`
+          myhost=${tmphost%-*}
+
+          [[ `hostname` =~ -([0-9]+)$ ]] || exit 1
+          ordinal=${BASH_REMATCH[1]}
+          if [[ $ordinal -eq 0 ]]; then
+            cp /mnt/config-map/postgresql.conf /mnt/conf.d/postgresql.conf
+            cp /mnt/config-map/pg_hba-master.conf /mnt/conf.d/pg_hba.conf
+            echo "host    replication   $POSTGRES_USER    all   md5" >> /mnt/conf.d/pg_hba.conf
+          else
+            cp /mnt/config-map/postgresql.conf /mnt/conf.d/postgresql.conf
+            cp /mnt/config-map/pg_hba-slave.conf /mnt/conf.d/pg_hba.conf
+            if [ -z "$(ls -A $PGDATA)" ]; then
+              echo "Running pg_basebackup to catch up replication server...";
+              # -Fp 指定生成备份的数据格式 plain原样输出
+              # -Xs 表示备份开始后，启动另一个流复制连接从主库接收WAL日志 s 为 stream
+              # -R 表示会在备份结束后自动生成 recovery.conf 文件
+              # -l 表示指定个备份的标识，运行命令后可以看到进度提示
+              export PGPASSWORD=$POSTGRES_PASSWORD
+              pg_basebackup -h $myhost-0.$myhost-headless -U $POSTGRES_USER \
+                -D $PGDATA -Fp -Xs -P -R -l $tmphost;
+            else
+              echo "Skipping pg_basebackup because directory is not empty";
+            fi
+          fi
+        env:
+        - name: PGDATA
+          value: /var/lib/postgresql/data/pgdata
+        - name: POSTGRES_USER
+          value: postgres
+        envFrom:
+        - secretRef:
+            name: myenv
+        image: postgres:9.6
+        name: init-data
+        volumeMounts:
+        - mountPath: /mnt/config-map
+          name: pgconf
+        - mountPath: /mnt/conf.d
+          name: conf
+        - mountPath: /var/lib/postgresql/data
+          name: user-data
+      securityContext:
+        fsGroup: 999
+        runAsUser: 999
+      containers:
+      - name: metrics
+        ports:
+        - containerPort: 9187
+          name: metrics        
+        image: "wrouesnel/postgres_exporter:v0.8.0"
+        imagePullPolicy: Always        
+        readinessProbe:
+          httpGet:
+            port: metrics
+            path: /metrics
+            httpHeaders:
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            port: metrics
+            path: /metrics
+            httpHeaders:
+          initialDelaySeconds: 60
+          periodSeconds: 10        
+        env:
+        - name: "DATA_SOURCE_NAME"
+          value: "postgresql://postgres:$(POSTGRES_PASSWORD)@127.0.0.1:5432/postgres?sslmode=disable"                
+        resources:
+          limits:
+            cpu: 100m
+            memory: 512Mi
+          requests:
+            cpu: 10m
+            memory: 64Mi
+        envFrom:
+        - secretRef:
+            name: myenv
+      - name: postgresql
+        ports:
+        - containerPort: 5432
+          name: tcp        
+        image: "postgres:9.6"
+        imagePullPolicy: Always        
+        readinessProbe:
+          exec:    
+            command:
+            - sh
+            - -c
+            - |
+              pg_isready -U $POSTGRES_USER -d $POSTGRES_DB --host 127.0.0.1
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        livenessProbe:
+          exec:    
+            command:
+            - sh
+            - -c
+            - |
+              pg_isready -U $POSTGRES_USER -d $POSTGRES_DB --host 127.0.0.1
+          initialDelaySeconds: 60
+          periodSeconds: 10        
+        env:
+        - name: "PGDATA"
+          value: "/var/lib/postgresql/data/pgdata"
+        - name: "POSTGRES_DB"
+          value: "postgres"
+        - name: "POSTGRES_USER"
+          value: "postgres"        
+        volumeMounts:
+        - mountPath: /etc/postgresql/conf.d/
+          name: conf
+        - mountPath: /mnt/config-map/
+          name: pgconf
+        - mountPath: /var/lib/postgresql/data
+          name: user-data        
+        resources:
+          limits:
+            cpu: 2048m
+            memory: 2048Mi
+          requests:
+            cpu: 1024m
+            memory: 1024Mi                
+        args:
+        - -c
+        - config_file=/etc/postgresql/conf.d/postgresql.conf
+        envFrom:
+        - secretRef:
+            name: myenv      
+      volumes:
+      - name: conf 
+        emptyDir: {}
+      - name: pgconf
+        configMap:
+          name: pgconf
+      #- name: user-data
+         #emptyDir: {}
+  volumeClaimTemplates:
+  - metadata:
+      name: user-data
+      annotations:
+    spec:
+      accessModes:
+      - "ReadWriteOnce"
+      resources:
+        requests:
+          storage: "20Gi"
+      storageClassName: "gfs-delete"

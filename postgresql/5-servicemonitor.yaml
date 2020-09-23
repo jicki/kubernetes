@@ -1,0 +1,18 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: postgresql
+  namespace: monitoring
+  labels: 
+    release: prometheus-operator
+spec:
+  selector:
+    matchLabels: 
+      release: prometheus-operator
+  endpoints:
+    - port: metrics
+      path: /metrics
+  jobLabel: jobLabel
+  namespaceSelector:
+    matchNames:
+      - postgresql-ha
