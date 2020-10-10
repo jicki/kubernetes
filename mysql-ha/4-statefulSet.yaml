@@ -105,15 +105,12 @@ spec:
           requests:
             cpu: 10m
             memory: 64Mi
-        command:
-        - /bin/sh
-        - -c
-        - |
-          password_aux="${MYSQL_ROOT_PASSWORD:-}"
-          DATA_SOURCE_NAME="root:${password_aux}@(localhost:3306)/" /bin/mysqld_exporter
         envFrom:
         - secretRef:
             name: myenv
+        env:
+        - name: "DATA_SOURCE_NAME"
+          value: "root:$(MYSQL_ROOT_PASSWORD)@(localhost:3306)/"
       - name: mysql
         ports:
         - containerPort: 3306
