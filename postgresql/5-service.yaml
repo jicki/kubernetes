@@ -1,0 +1,16 @@
+kind: Service
+apiVersion: v1
+metadata:
+  name: postgresql-headless
+  namespace: postgresql
+  labels:
+    app: postgresql-headless
+spec:
+  type: ClusterIP
+  clusterIP: None
+  selector:
+    app: postgresql
+  ports:
+  - name: postgresql
+    targetPort: tcp
+    port: 5432

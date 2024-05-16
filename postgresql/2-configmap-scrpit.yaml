@@ -1,0 +1,40 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: scrpit
+  namespace: postgresql
+  labels:
+data:
+  check_disk_space.sh: |-
+    #!/bin/bash
+
+    readonly READ_ONLY_THRESHOLD=90
+    readonly READ_WRITE_THRESHOLD=80
+
+    # 检查 PostgreSQL 是否准备就绪
+    until pg_isready -U $POSTGRES_USER; do
+      echo "等待 PostgreSQL 启动..."
+      sleep 5
+    done
+
+    echo "PostgreSQL 已启动，开始磁盘空间检查..."
+
+    while true; do
+      current_time=$(date +"%Y-%m-%d %T")
+      used=$(df /var/lib/postgresql/data | tail -1 | awk '{print $5}' | sed 's/%//')
+      is_read_only=$(psql -U $POSTGRES_USER -t -c "SHOW default_transaction_read_only;" | awk '{print $1}')
+
+      if [ "$used" -ge $READ_ONLY_THRESHOLD ] && [ "$is_read_only" == "off" ]; then
+        echo "磁盘使用率达到 $READ_ONLY_THRESHOLD%，切换为只读模式..."
+        psql -U $POSTGRES_USER -c "ALTER SYSTEM SET default_transaction_read_only = on;"
+        psql -U $POSTGRES_USER -c "SELECT pg_reload_conf();"
+      elif [ "$used" -lt $READ_WRITE_THRESHOLD ] && [ "$is_read_only" == "on" ]; then
+        echo "磁盘使用率低于 $READ_WRITE_THRESHOLD%，恢复为读写模式..."
+        psql -U $POSTGRES_USER -c "ALTER SYSTEM SET default_transaction_read_only = off;"
+        psql -U $POSTGRES_USER -c "SELECT pg_reload_conf();"
+      fi
+
+      sleep 60
+      echo "$current_time   当前磁盘使用率为 $used%"
+    done
+

@@ -1,0 +1,131 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgresql
+  namespace: postgresql
+  labels:
+    app: postgresql
+spec:
+  replicas: 1
+  podManagementPolicy: OrderedReady
+  selector:
+    matchLabels:
+      app: postgresql
+  serviceName: postgresql-headless
+  template:
+    metadata:
+      labels:
+        app: postgresql
+    spec:
+      terminationGracePeriodSeconds: 30
+      securityContext:
+        fsGroup: 999
+        runAsUser: 999
+      containers:
+      - name: disk-space-checker
+        ports:
+        - containerPort: 5432
+          name: tcp
+        image: "postgres:15.2"
+        imagePullPolicy: Always
+        volumeMounts:
+        - mountPath: /scripts/check_disk_space.sh
+          name: scrpit
+          subPath: check_disk_space.sh
+        - mountPath: /var/run/postgresql/
+          name: socket
+        - mountPath: /var/lib/postgresql/data
+          name: user-data
+        resources:
+          limits:
+            cpu: 500m
+            memory: 512Mi
+          requests:
+            cpu: 50m
+            memory: 128Mi
+        command:
+        - /bin/sh
+        - -c
+        - /scripts/check_disk_space.sh
+        envFrom:
+        - secretRef:
+            name: psqlenv
+      - name: postgresql
+        ports:
+        - containerPort: 5432
+          name: tcp
+        image: "postgres:15.2"
+        imagePullPolicy: Always
+        env:
+        - name: "PGDATA"
+          value: "/var/lib/postgresql/data/pgdata"
+        volumeMounts:
+        - mountPath: /dev/shm
+          name: dshm
+        - mountPath: /var/log/postgresql
+          name: logs
+        - mountPath: /etc/postgresql/
+          name: pgconf
+        - mountPath: /etc/postgresql/tls/
+          name: pgtls
+        - mountPath: /var/run/postgresql/
+          name: socket
+        - mountPath: /var/lib/postgresql/data
+          name: user-data
+        resources:
+          limits:
+            cpu: 2
+            memory: 4Gi
+          requests:
+            cpu: 2
+            memory: 4Gi
+        readinessProbe:
+          exec:
+            command:
+            - sh
+            - -c
+            - |
+              pg_isready --username=$POSTGRES_USER --dbname=$POSTGRES_DB --host=127.0.0.1
+          failureThreshold: 3
+          initialDelaySeconds: 60
+          periodSeconds: 15
+          successThreshold: 1
+          timeoutSeconds: 10
+        args:
+        - -c
+        - config_file=/etc/postgresql/postgresql.conf
+        envFrom:
+        - secretRef:
+            name: psqlenv
+      volumes:
+      - name: dshm
+        emptyDir:
+          medium: Memory
+          sizeLimit: 1Gi
+      - name: logs
+        emptyDir: {}
+      - name: socket
+        emptyDir: {}
+      - name: pgconf
+        configMap:
+          name: pgconf
+      - name: pgtls
+        configMap:
+          defaultMode: 384
+          name: pgtls
+      - name: scrpit
+        configMap:
+          defaultMode: 493
+          name: scrpit
+  volumeClaimTemplates:
+  - metadata:
+      name: user-data
+      labels:
+      annotations:
+    spec:
+      accessModes:
+      - "ReadWriteOnce"
+      resources:
+        requests:
+          storage: "5Gi"
+      storageClassName: "nfs-storage"

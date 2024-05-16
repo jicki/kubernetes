@@ -1,0 +1,220 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: pgconf
+  namespace: postgresql
+data:
+  pg_hba.conf: |
+    # PostgreSQL Client Authentication Configuration File
+    # ===================================================
+    # TYPE  DATABASE        USER            ADDRESS                 METHOD
+    # "local" is for Unix domain socket connections only
+    local   all             all                                     trust
+    # IPv4 local connections:
+    host    all             all             127.0.0.1/32            trust
+    # IPv6 local connections:
+    host    all             all             ::1/128                 trust
+    # On an uninitialized database, this will populate
+    host    all             all             all                     md5
+  postgresql.conf: "# ------------------------------------------------#\n# PostgreSQL
+    configuration file Version to 14.6   #\n# ------------------------------------------------#\n\n\n#
+    - 配置文件设置 -\n\n# 数据目录路径\n#data_directory = 'ConfigDir' \n# 指定 pg_hba.conf 文件路径,默认为
+    Data 目录下\nhba_file = '/etc/postgresql/pg_hba.conf'\n# pg_ident.conf 文件路径\n# ident_file
+    = 'ConfigDir/pg_ident.conf' \n\n# 指定可被服务器创建的用于管理程序的额外进程ID（PID）文件.\n#external_pid_file
+    = '' \n\n# - 服务器连接设置 -\n\n# 用于配置监听的连接地址. 默认 * \nlisten_addresses = '*'\n# 修改端口，默认为
+    5432\t\nport = 5432\n# 最大连接数, slave 节点，必须将该参数的值设置为大于等于主节点上的值.\nmax_connections =
+    500\n# 超级用户预留连接数必须小于 max_connections\nsuperuser_reserved_connections = 10\n# 设置生成
+    socket 的路径\n#unix_socket_directories = '/var/run/postgresql'\n# 设置 Unix-domain socket所在的操作系统用户组。默认值是空串\n#unix_socket_group
+    = ''\n# 设置 Unix-domain socket的访问权限，默认值是0770\n#unix_socket_permissions = 0777\n#
+    通过 bonjour 广播服务器\n#bonjour = off\n# bonjour 广播名称\n#bonjour_name = ''\n\n# - 安全认证设置
+    -\n\n# 客户端连接时的认证时间, 超过时间未认证 客户端连接会被拒绝\n#authentication_timeout = 1min\n# 是否启用 ssl
+    认证连接\nssl = on\n# 指定 ssl 加密算法\n#ssl_ciphers = 'HIGH:MEDIUM:+3DES:!aNULL' # allowed
+    SSL ciphers\n\n#ssl_prefer_server_ciphers = on\t\n#ssl_ecdh_curve = 'prime256v1'\nssl_cert_file
+    = '/etc/postgresql/tls/pg-server.crt'\nssl_key_file = '/etc/postgresql/tls/pg-server.key'\n#ssl_ca_file
+    = ''\n#ssl_crl_file = ''\n#password_encryption = on\n#db_user_namespace = off\n#row_security
+    = on\n\n# GSSAPI using Kerberos\n#krb_server_keyfile = ''\n#krb_caseins_users =
+    off\n\n# - TCP Keepalives -\n\n# 设置TCP套接字的 TCP_KEEPIDLE 属性, 0 为使用操作系统的值.\n#tcp_keepalives_idle
+    = 0\n# 设置TCP套接字的 TCP_KEEPINTVL 属性, 0 为使用操作系统的值.\n#tcp_keepalives_interval = 0\n#
+    设置TCP套接字的 TCP_KEEPCNT 属性, 0 为使用操作系统的值.\n#tcp_keepalives_count = 0\n\n# - 内存相关设置
+    -\n\n# 表示数据缓冲区中的数据块的个数, 每个数据块的大小是 8KB.\n# 大约可以设置为系统内存的 25% ,增大 buffers 通常也需要增大 max_wal_size.
+    \nshared_buffers = 1GB\n# 启用/禁用 巨型内存页面, 默认为 try , 服务器将 尝试使用巨型页面.\n#huge_pages =
+    try\n# 设置每个数据库会话使用的临时缓冲区的最大数目, 用于访问临时表.\n#temp_buffers = 8MB\n# 设置可以同时处于 \"prepared\"
+    状态的事务的最大数目把这个参数设置 0 为禁用预备事务特性.\n#max_prepared_transactions = 0\n\n# 数据库的排序操作和哈希表使用的内存缓冲区的大小.\nwork_mem
+    = 1048kB\n# 数据库的维护操作使用的内存空间的大小.\nmaintenance_work_mem = 512MB\n# 对头扫描的N条记录使用selection排序,
+    N = work_mem 与 replacement_sort_tuples, 提升排序的效率.\n#replacement_sort_tuples = 150000\n#
+    设置每个自动清理进程能使用的最大内存量\n#autovacuum_work_mem = -1\n# 服务器的执行堆栈的最大安全深度, 服务器运行的STACK大小如果超过max_stack_depth，会自动终止当前事务.\n#max_stack_depth
+    = 2MB\t\t\t# min 100kB\n# 服务器应该使用的动态共享内存类型, 支持 posix, sysv, windows, mmap, 空为禁止.\ndynamic_shared_memory_type
+    = posix\n\n\n# - 磁盘相关设置 -\n\n# 每个会话的临时文件空间(kb),-1 表示无限制\n#temp_file_limit = -1\n\n\n#
+    - 内核相关设置 -\n\n# 设置每个服务器子进程允许同时打开的最大文件数目\n#max_files_per_process = 1000\n# 指定一个或者多个要在服务器启动时预载入的共享库\n#shared_preload_libraries
+    = ''\n\n# - 垃圾回收设置 -\n\n# 它决定执行 VACUUM 和 ANALYZE 命令的进程的睡眠时间. 设置为10的整数\n#vacuum_cost_delay
+    = 0\n# 表示锁住缓冲池，查找共享的散列表以及扫描页面的内容的开销.\n#vacuum_cost_page_hit = 1\n# 它表示锁住缓冲池、查找共享哈希表、从磁盘读取需要的块以及扫描其内容的开销.\n#vacuum_cost_page_miss
+    = 10\n# 它表示再次把脏块刷出到磁盘所需要的额外I/O.\n#vacuum_cost_page_dirty = 20\n# 它表示导致清理进程休眠的积累开销.\n#vacuum_cost_limit
+    = 200\n\n# - 后台写数据进程 -\n\n# 它决定后台写数据库进程的睡眠时间\n#bgwriter_delay = 200ms\n# 后台写数据库进程每次写脏数据块时，写到外部文件中的脏数据块的个数不能超过设置值.\n#bgwriter_lru_maxpages
+    = 100\n# 它决定后台写数据库进程每次写物理文件时，写到外部文件中的脏数据块的个数.\n#bgwriter_lru_multiplier = 2.0\n#
+    进程写脏数据块量超过配置阈值时，触发调用系统 sync_file_range，告诉系统 backend flush 线程异步刷盘.\n#bgwriter_flush_after
+    = 512kB\n\n# - 异步操作相关配置 -\n\n# 设置 PostgreSQL 可以同时被执行的并发磁盘 I/O 操作的数量, 0 为禁用.\neffective_io_concurrency
+    = 300\n# 设置系统能够支持的后台进程的最大数量\nmax_worker_processes = 2\n# 设置后台并行查询的线程数量\nmax_parallel_workers_per_gather
+    = 1\nmax_parallel_workers = 2\nmax_parallel_maintenance_workers = 1\n# 设置旧快照的生存时间,
+    -1 为关闭\n#old_snapshot_threshold = -1\n# 当后台线程 脏数据超过配置阈值时, 触发调用系统 sync_file_range，告诉系统
+    backend flush 线程异步刷盘.\n#backend_flush_after = 0\n\n\n# - 预写日志相关配置 -\n\n# 配置 预写日志模式,
+    支持 minimal, replica, logical\nwal_level = logical\n# 设置同步方式, 服务器将尝试确保更新被写入到磁盘\n#fsync
+    = on\n# 是否开启异步提交, 如果磁盘的IOPS一般，建议使用异步提交来提高性能, 但是数据库出错会导致数据丢失.\n#synchronous_commit
+    = on\n# 配置强制 WAL 更新到磁盘的方法. fsync 为关闭.\n#wal_sync_method = fsync\n# 服务器在checkpoint之后在对页面的第一次写时将整个页面写到wal里面.\n#full_page_writes
+    = on\n# 是否开启服务器压缩完整页面图片到WAL中. 在WAL回放中解压压缩的页面图片.\n#wal_compression = off\n# 服务器一个检查点之后页面被第一次修改期间把该磁盘页面的整个内容都写入
+    WAL 中.\n#wal_log_hints = on\n# 用于还未写入磁盘的 WAL 数据的共享内存量 -1 为 shared_buffers 的 1/32
+    . \nwal_buffers = 16MB\n# 指定写入器将 WAL 刷到磁盘的时间间隔.\n#wal_writer_delay = 200ms\n# 指定写入器达到指定数量时刷到磁盘.
+    默认1MB , 0为立刻刷到磁盘.\n#wal_writer_flush_after = 1MB\n# 设定事务在发出提交命令以后的睡眠时间.只有休眠指定时间后事物才会被真正提交.\n#commit_delay
+    = 0\n# 数据库中正在执行的事务的个数大于或等于指定数, 则触发 commit_delay 提交间隔.\n#commit_siblings = 5\n\n#
+    - 检查点相关设置 -\n\n# 设置 自动 WAL 检查点之间的最长时间.\n#checkpoint_timeout = 5min\n# 自动 WAL 检查点使得
+    WAL 增长到最大尺寸.\nmax_wal_size = 16GB\n# 只要 WAL 磁盘使用率低于这个设置，旧的 WAL 文件总数被回收，以供将来检查点使用.\nmin_wal_size
+    = 4GB\n# 控制检查点操作的执行时间.\ncheckpoint_completion_target = 0.9\n# 当检查点超过设置数量时, 触发调用系统
+    sync_file_range，告诉系统 backend flush 线程异步刷盘\n#checkpoint_flush_after = 256kB\n# 设置检查点的实际发生时间,
+    小于该值, 将会在日志文件里写入相关记录. 0 为关闭记录.\n#checkpoint_warning = 30s\n\n# - 归档相关设置 -\n\n# 配置是否打开归档模式,
+    归档模式与流式复制没有关系.\n# archive_mode = on\n# 配置 WAL 归档日志存放的路径\n# archive_command = 'DIR=/var/lib/postgresql/data/pgdata/pg_archive/`date
+    +%F`; test ! -d $DIR && mkdir -p $DIR; test ! -f $DIR/%f && cp %p $DIR/%f'\n# 配置事物文件
+    WAL 在指定的时间内切换到一个新的 WAL 事物文件中. 0 为关闭\n#archive_timeout = 0\n\n\n#------------------------------------------------------------------------------\n#
+    复制同步相关设置\n#------------------------------------------------------------------------------\n\n#
+    - 发送服务相关配置 -\n\n# Set these on the master and on any standby that will send replication
+    data.\n\n# slave 客户端的并发连接的最大数量（即同时运行 WAL发送进程 的最大数）， 0 为禁用复制.\n#max_wal_senders =
+    10\n# 流复制的情况下，pg_xlog 目录下所能保留的过去日志文件段的最小数目.\n#wal_keep_segments = 0\n# 断开停止活动超过指定毫秒数的复制连接.\n#wal_sender_timeout
+    = 60s\n# 支持的复制槽最大数量\n#max_replication_slots = 0\n# 是否记录事务提交时间\n#track_commit_timestamp
+    = off\n\n# - Master Server -\n\n# These settings are ignored on a standby server.\n\n#
+    同步复制模式的 slave 服务器名称, 同步复制模式必须填写. 可以设置为 * .\n#synchronous_standby_names = ''\n# 延迟指定时间
+    清理删除的元组.\n#vacuum_defer_cleanup_age = 0\n\n# - Slave Servers -\n\n# These settings
+    are ignored on a master server.\n\n# 在恢复归档期间是否支持只读操作.设置为 on 从库为只读模式\n#hot_standby
+    = on\n# 归档读取模式下 参数决定取消与应用的WAL项冲突的备用查询之前，备用服务器应等待多久.\n#max_standby_archive_delay
+    = 30s\n# 流复制读取模式下 参数决定取消与应用的WAL项冲突的备用查询之前，备用服务器应等待多久.\n#max_standby_streaming_delay
+    = 30s\n# 指定在 slave 上的 WAL 接收者进程向主服务器或上游 slave 发送有关复制进度的信息的最小频度.\n#wal_receiver_status_interval
+    = 10s\n# 指定一个 slave 是否将会向主服务器或上游 slave 发送有关于 slave 上当前正被执行的查询的反馈.\n#hot_standby_feedback
+    = off\n# 中止处于非活动状态超过指定毫秒数的复制链接.\n#wal_receiver_timeout = 60s\n# 指定等待服务器应等待多长时间.\n#wal_retrieve_retry_interval
+    = 5s\n\n\n#------------------------------------------------------------------------------\n#
+    QUERY TUNING\n#------------------------------------------------------------------------------\n\n#
+    - 规划器方法配置 -\n\n# 允许或禁止查询规划器使用位图扫描计划类型.\n#enable_bitmapscan = on\n# 允许或禁用查询规划器使用哈希聚集计划类型.\n#enable_hashagg
+    = on\n# 允许或禁止查询规划器使用哈希连接计划类型.\n#enable_hashjoin = on\n# 允许或禁止查询规划器使用索引扫描计划类型.\n#enable_indexscan
+    = on\n# 允许或禁止查询规划器使用只用索引扫描计划类型.\n#enable_indexonlyscan = on\n# 允许或者禁止查询规划器使用物化.\n#enable_material
+    = on\n# 允许或禁止查询规划器使用归并连接计划类型.\n#enable_mergejoin = on\n# 允许或禁止查询规划器使用嵌套循环连接计划.\n#enable_nestloop
+    = on\n# 允许或禁止查询规划器使用顺序扫描计划类型.\n#enable_seqscan = on\n# 允许或禁止查询规划器使用显式排序步骤.\n#enable_sort
+    = on\n# 允许或禁止查询规划器使用TID扫描计划类型.\n#enable_tidscan = on\n\n# - 规划器代价常量 -\n\n# 设置规划器计算一次顺序磁盘页面抓取的开销\n#seq_page_cost
+    = 1.0\n# 设置规划器对一次非顺序获取磁盘页面的代价估计\nrandom_page_cost = 1.1\n# 设置规划器对一次查询中处理每一行的代价估计\n#cpu_tuple_cost
+    = 0.01\n# 设置规划器对一次索引扫描中处理每一个索引项的代价估计\n#cpu_index_tuple_cost = 0.005\n# 设置规划器对于一次查询中处理每个操作符或函数的代价估计\n#cpu_operator_cost
+    = 0.0025\n# 设置规划器对于从一个并行工作者进程传递一个元组给另一个进程的代价估计\n#parallel_tuple_cost = 0.1\n# 设置规划器对启动并行工作者进程的代价估计\n#parallel_setup_cost
+    = 1000.0\n# 设置启用并行查询的最小数据表的大小\n#min_parallel_relation_size = 8MB\n# 提供可用于磁盘高速缓存的内存量的估计值\neffective_cache_size
+    = 3GB\n\n# - Genetic 查询优化 -\n\n# 允许或禁止遗传查询优化\n#geqo = on\n# 设置当 FROM 项数量为指定数量时,
+    才使用遗传查询优化\n#geqo_threshold = 12\n# 控制 GEQO 里规划时间和查询规划的有效性之间的平衡\n#geqo_effort = 5\n#
+    控制 GEQO 使用的池数量，它就是遗传种群中的个体数目\n#geqo_pool_size = 0\n# 控制 GEQO 使用的子代数目, 子代的意思是算法的迭代次数\n#geqo_generations
+    = 0\n# 控制 GEQO 使用的选择偏好, 选择偏好是种群中的选择压力\n#geqo_selection_bias = 2.0\n# 控制 GEQO 使用的随机数生成器的初始值，随机数生成器用于在连接顺序搜索空间中选择随机路径\n#geqo_seed
+    = 0.0\n\n# - 其他规划器选项 -\n\n# 为没有通过ALTER TABLE SET STATISTICS设置列相关目标的表列设置默认统计目标\ndefault_statistics_target
+    = 300\n# 约束检测 partition 它通常被用于继承和分区表来提高性能\n# 当对一个特定表允许这个参数，规划器比较查询条件和表的CHECK约束，并且忽略那些条件违反约束的表扫描\n#constraint_exclusion
+    = partition\n# 设置规划器对将被检索的一个游标的行的比例的估计\n#cursor_tuple_fraction = 0.1\n# 如果生成的FROM列表不超过设置项，规划器将把子查询融合到上层查询\n#from_collapse_limit
+    = 8\n# 如果得出的列表中不超过设置项，那么规划器将把显式JOIN结构重写到 FROM项列表中\n#join_collapse_limit = 8\n# 是否允许为测试目的使用并行查询，即便是并不期望在性能上得到效益\n#force_parallel_mode
+    = off\n\n\n#------------------------------------------------------------------------------\n#
+    ERROR REPORTING AND LOGGING\n#------------------------------------------------------------------------------\n\n#
+    - Where to Log -\n\n# 日志记录方式, 支持 stderr, csvlog, syslog, and eventlog\n#log_destination
+    = 'stderr'\n\n# This is used when logging to stderr:\n# 启用日志收集器, 用户 stderr 模式下 捕捉被发送到stderr的日志消息的后台进程\n#logging_collector
+    = on\n\n# These are only used if logging_collector is on:\n# 日志文件记录路径, 如果指定 postgresql.conf
+    文件必须配置绝对路径\n#log_directory = 'pg_log'\n# 设置日志文件名字 postgresql-%Y-%m-%d_%H%M%S.log\n#log_filename
+    = 'postgresql-%w.log'\n# 日志文件的权限\n#log_file_mode = 0600\n# 是否清除日志文件\n#log_truncate_on_rotation
+    = on\n# 当 log_truncate_on_rotation 为on时 生效, 表示指定时间清除日志\n#log_rotation_age = 7d\n#
+    当 log_truncate_on_rotation 为on时 生效, 表示指定大小时清理日志 0 为禁止\n#log_rotation_size = 0\n\n#
+    These are relevant when logging to syslog:\n# 当 log_destination = syslog 时如下配置生效\n#
+    配置 syslog 使用的设备.\n#syslog_facility = 'LOCAL0'\n# 参数决定用来标识syslog中的PostgreSQL消息的程序名\n#syslog_ident
+    = 'postgres'\n# 配置 syslog 记录日志时每个消息会增加一个自增长的序号做为前缀\n#syslog_sequence_numbers = on\n#
+    配置 syslog 是否切割日志消息\n#syslog_split_messages = on\n\n# This is only relevant when
+    logging to eventlog (win32):\n# (change requires restart)\n#event_source = 'PostgreSQL'\n\n#
+    - When to Log -\n\n# 设置日志级别\nlog_min_messages = info\n\t\t\t\t\t#   debug5\n\t\t\t\t\t#
+    \  debug4\n\t\t\t\t\t#   debug3\n\t\t\t\t\t#   debug2\n\t\t\t\t\t#   debug1\n\t\t\t\t\t#
+    \  info\n\t\t\t\t\t#   notice\n\t\t\t\t\t#   warning\n\t\t\t\t\t#   error\n\t\t\t\t\t#
+    \  log\n\t\t\t\t\t#   fatal\n\t\t\t\t\t#   panic\n\n# 设置错误日志级别\n#log_min_error_statement
+    = error\n\t\t\t\t\t#   debug5\n\t\t\t\t\t#   debug4\n\t\t\t\t\t#   debug3\n\t\t\t\t\t#
+    \  debug2\n\t\t\t\t\t#   debug1\n\t\t\t\t\t#   info\n\t\t\t\t\t#   notice\n\t\t\t\t\t#
+    \  warning\n\t\t\t\t\t#   error\n\t\t\t\t\t#   log\n\t\t\t\t\t#   fatal\n\t\t\t\t\t#
+    \  panic (effectively off)\n\n# 记录每一个指定完成语句的持续时间 -1 为 关闭 (慢查询日志 ms)\nlog_min_duration_statement
+    = 2000\n\n\n# - What to Log -\n\n# debug 调试模式\n#debug_print_parse = off\n#debug_print_rewritten
+    = off\n#debug_print_plan = off\n#debug_pretty_print = on\n# 是否开启导致检查点和重启点被记录在服务器日志中\nlog_checkpoints
+    = on\n# 是否开启导致每一次尝试对服务器的连接被记录，客户端认证的成功完成也会被记录\nlog_connections = on\n# 是否开启记录会话终止原因,
+    以及会话持续时间\nlog_disconnections = on\n# 是否开启导致每一个完成的语句的持续时间被记录\n#log_duration = off\n#
+    控制为每一个被记录的消息要写入到服务器日志的细节量\n#log_error_verbosity = default\n# 是否开启记录连接的 hostname,
+    默认只记录 IP地址\n#log_hostname = off\n# 日志信息格式化\nlog_line_prefix = '%m [%p] %u %d %r'\n\t\t\t\t\t#
+    \  %a = application name\n\t\t\t\t\t#   %u = user name\n\t\t\t\t\t#   %d = database
+    name\n\t\t\t\t\t#   %r = remote host and port\n\t\t\t\t\t#   %h = remote host\n\t\t\t\t\t#
+    \  %p = process ID\n\t\t\t\t\t#   %t = timestamp without milliseconds\n\t\t\t\t\t#
+    \  %m = timestamp with milliseconds\n\t\t\t\t\t#   %n = timestamp with milliseconds
+    (as a Unix epoch)\n\t\t\t\t\t#   %i = command tag\n\t\t\t\t\t#   %e = SQL state\n\t\t\t\t\t#
+    \  %c = session ID\n\t\t\t\t\t#   %l = session line number\n\t\t\t\t\t#   %s = session
+    start timestamp\n\t\t\t\t\t#   %v = virtual transaction ID\n\t\t\t\t\t#   %x = transaction
+    ID (0 if none)\n\t\t\t\t\t#   %q = stop here in non-session\n\t\t\t\t\t#        processes\n\t\t\t\t\t#
+    \  %% = '%'\n\t\t\t\t\t# e.g. '<%u%%%d> '\n\n# 当一个会话为获得一个锁等到超过deadlock_timeout时，是否要产生一个日志消息\nlog_lock_waits
+    = on\n# 控制哪些SQL语句被记录到日志 none 为关闭\nlog_statement = 'mod'\t\t\t# none, ddl(数据定义语言),
+    mod(DDL以及修改操作), all\n# 是否开启每个复制命令记录在日志中\n#log_replication_commands = off\n# 控制记录临时文件名和尺寸
+    -1 为关闭\n#log_temp_files = -1\n# 设置在服务器日志中写入的时间戳的时区\nlog_timezone = 'Asia/Shanghai'\n\n\n#
+    - Process Title -\n\n# 设置出现在集群中的所有进程标题中的集群名称\n#cluster_name = ''\n# 启用更新进程标题的特性，这个特性在每次服务器接收到一个新SQL命令时都会更新进程的标题\n#update_process_title
+    = on\n\n\n#------------------------------------------------------------------------------\n#
+    RUNTIME STATISTICS\n#------------------------------------------------------------------------------\n\n#
+    - 查询和索引统计收集器 -\n\n# 是否对每个会话的当前执行命令的信息收集，还有命令开始执行的时间\n#track_activities = on\n# 是否在数据库活动上的统计收集\n#track_counts
+    = on\n# 是否对系统 I/O 调用的统计收集\n#track_io_timing = off\n# 是否跟踪函数调用计数和用时 none 为关闭\n#track_functions
+    = none\n# 指定跟踪每个活动会话当前执行命令所保留的字节数\n#track_activity_query_size = 1024\n# 设置存储临时统计数据的目录,默认在
+    data 目录下\n#stats_temp_directory = 'pg_stat_tmp'\n\n\n# - 统计监控 -\n\n# 对每个查询，向服务器日志里输出相应模块的性能统计\n#log_parser_stats
+    = off\n#log_planner_stats = off\n#log_executor_stats = off\n#log_statement_stats
+    = off\n\n\n#------------------------------------------------------------------------------\n#
+    AUTOVACUUM PARAMETERS\n#------------------------------------------------------------------------------\n\n#
+    控制服务器是否运行自动清理启动器后台进程,需要同时开启 track_counts\n#autovacuum = on\n# 是否规定时长内未完成的vacuum予以记录日志
+    -1 为关闭\n#log_autovacuum_min_duration = -1\n# 自动清理进程的最大线程数\n#autovacuum_max_workers
+    = 3\n# 两次自动清理的时间间隔\n#autovacuum_naptime = 1min\n# 某表DML操作达到指定的最小行数则执行自动清理\n#autovacuum_vacuum_threshold
+    = 50\n# 激活自动analyze操作的最小行数\n#autovacuum_analyze_threshold = 50\n# 自动清理的清理操作所需的变更量阈值\n#autovacuum_vacuum_scale_factor
+    = 0.2\n# 自动清理的analyze操作所需的变更量阈值\n#autovacuum_analyze_scale_factor = 0.1\n# 某表的pg_class.relfrozenxid的最大值，如果超出此值则重置
+    XID\n#autovacuum_freeze_max_age = 200000000\n# 某表的pg_class.relminmxid的最大值, 如果超出此值则重置
+    XID\n#autovacuum_multixact_freeze_max_age = 400000000\n# 运行一次自动清理操作的时长，如果超过此值则休眠然后再进行清理操作\n#autovacuum_vacuum_cost_delay
+    = 20ms\n# 自动清理操作中的限制时间, -1 既使用 autovacuum_vacuum_cost_delay 的值\n#autovacuum_vacuum_cost_limit
+    = -1\n\n\n#------------------------------------------------------------------------------\n#
+    CLIENT CONNECTION DEFAULTS\n#------------------------------------------------------------------------------\n\n#
+    - SQL 语句行为 -\n\n# 控制被发送给客户端的消息级别\n#client_min_messages = notice\n\t\t\t\t\t#   debug5\n\t\t\t\t\t#
+    \  debug4\n\t\t\t\t\t#   debug3\n\t\t\t\t\t#   debug2\n\t\t\t\t\t#   debug1\n\t\t\t\t\t#
+    \  log\n\t\t\t\t\t#   notice\n\t\t\t\t\t#   warning\n\t\t\t\t\t#   error\n\n# 指定当一个对象被用一个无模式限定的简单名称引用时，用于进行搜索该对象的模式顺序\n#search_path
+    = '\"$user\", public'\n# 指定当一个CREATE命令没有显式指定一个表空间时，创建对象（表和索引）的默认表空间\n#default_tablespace
+    = ''\n# 指定当一个CREATE命令没有显式指定一个表空间时，创建临时对象（临时表和临时表上的索引）的默认表空间\n#temp_tablespaces =
+    ''\n# 设置为 OFF 则禁用CREATE FUNCTION期间对函数体字符串的验证.\n#check_function_bodies = on\n# 控制每个新事务的默认隔离级别
+    默认为 读已提交\n#default_transaction_isolation = 'read committed'\n# 控制每个新事务的默认只读状态 \n#default_transaction_read_only
+    = off\n# 控制每个新事务的默认可延迟状态\n#default_transaction_deferrable = off\n# 当前会话控制复制相关的触发器和规则的触发\n#session_replication_role
+    = 'origin'\n# 中止任何使用了超过指定毫秒数的语句\n#statement_timeout = 0\n# 语句在试图获取表、索引、行或其他数据库对象上的锁时等待超过指定的毫秒数,该语句将被中止\n#lock_timeout
+    = 0\n# 设置 idle in transaction 空闲事物的超时时间\n#idle_in_transaction_session_timeout =
+    0\n# 每次清理操作时,行事务id大于这个数字的时候,都会被设置 freeze\n#vacuum_freeze_min_age = 50000000\n#vacuum_freeze_table_age
+    = 150000000\n#vacuum_multixact_freeze_min_age = 5000000\n#vacuum_multixact_freeze_table_age
+    = 150000000\n# 设置bytea类型值的输出格式.可选 hex 和 escape\n#bytea_output = 'hex'\n# 设置二进制值如何被编码为XML.\n#xmlbinary
+    = 'base64'\n# 当在XML和字符串值之间进行转换时的方式\n#xmloption = 'content'\n# GIN 索引返回的集合尺寸的软上限.\n#gin_fuzzy_search_limit
+    = 0\n# 当启用 fastupdate 时，设置正在使用的GIN挂起列表的最大尺寸.\n#gin_pending_list_limit = 4MB\n\n#
+    - 区域和格式化 -\n\n# 格式化日期的输出\ndatestyle = 'iso, ymd'\n# 设置间隔值的显示格式. postgres - 将产生匹配PostgreSQL发行
+    8.4之前的输出\n#intervalstyle = 'postgres'\n# 设置用于显示和解释时间戳的时区. 内建默认值是GMT.\ntimezone =
+    'Asia/Shanghai'\n# 设置服务器接受的日期时间输入中使用的时区缩写集合\n#timezone_abbreviations = 'Default'\n#
+    浮点值显示位数，包括float4、float8以及几何数据类型\n#extra_float_digits = 0\n# 设置客户端编码（字符集）. 默认使用数据库编码\n#client_encoding
+    = sql_ascii\n\n# 设置消息显示的语言. 可接受的值是系统相关的, 系统没有程序会报错.\nlc_messages = 'en_US.UTF-8'\n#
+    设置用于格式化货币量的区域语言\nlc_monetary = 'en_US.UTF-8'\n# 设置用于格式化数字的区域语言\nlc_numeric = 'en_US.UTF-8'\n#
+    设置用于格式化日期和时间的区域语言\nlc_time = 'en_US.UTF-8'\n\n# 选择被那些没有显式参数指定配置的文本搜索函数变体使用的文本语言\ndefault_text_search_config
+    = 'pg_catalog.english'\n\n# - 其他配置 -\n\n# 动态装载的模块\n#dynamic_library_path = '$libdir'\n#
+    指定一个或者多个要在连接开始时预载入的共享库\n#local_preload_libraries = ''\n# 指定一个或者多个要在连接开始时预载入的共享库\n#session_preload_libraries
+    = ''\n\n\n#------------------------------------------------------------------------------\n#
+    锁 管理\n#------------------------------------------------------------------------------\n\n#
+    进行死锁检测之前在一个锁上等待的总时间\n#deadlock_timeout = 1s\n# 控制为每个事务分配的对象锁的平均数量\n#max_locks_per_transaction
+    = 64\n# 共享谓词锁表跟踪\n#max_pred_locks_per_transaction = 64\n\n\n#------------------------------------------------------------------------------\n#
+    版本 和 平台兼容性\n#------------------------------------------------------------------------------\n\n#
+    - Previous PostgreSQL Versions -\n\n# 控制数组输入解析器是否把未用引号的NULL识别为一个空数组元素\n#array_nulls
+    = on\n# 控制字符串文本中的单引号是否能够用 \\' 来表示\n#backslash_quote = safe_encoding\n# 控制 CREATE
+    TABLE和CREATE TABLE AS在没有指定WITH OIDS和WITHOUT OIDS的情况下, 是否在表中包含 OID 列\n#default_with_oids
+    = off\n# 控制 在普通字符串文本中 出现 \\ 是否发出警告\n#escape_string_warning = on\n# 控制 是否禁用新(9.0版本后)的权限检查，以与以前的版本兼容.\n#lo_compat_privileges
+    = off\n# 控制 解析器是否为了可能修改的任何结构发出警告\n#operator_precedence_warning = off\n# 当数据库产生 SQL
+    时，强制所有标识符被引号包围，即使它们不是关键字\n#quote_all_identifiers = off\n# 控制未修饰的表引用是否被视作要包括继承的子表\n#sql_inheritance
+    = on\n# 控制普通字符串文本是否按照 SQL 标准把反斜线当普通文本\n#standard_conforming_strings = on\n# 对大型表的顺序扫描与其他扫描同步，因此并发扫描可以在几乎相同的时刻读取相同的块，这样可以分担
+    I/O 负载\n#synchronize_seqscans = on\n\n# - 平台和客户端兼容性 -\n\n# 是否让 expr 得出空值值则返回真，否则返回假\n#transform_null_equals
+    = off\n\n\n#------------------------------------------------------------------------------\n#
+    错误处理\n#------------------------------------------------------------------------------\n\n#
+    严谨模式 任何错误将中止当前会话.\n#exit_on_error = off\n# PostgreSQL 将在一次后端崩溃后自动重新初始化 crash\n#restart_after_crash
+    = on\n# 设置为 false 时 PostgreSQL 把修改的数据文件刷新到文件系统失败，将引发PANIC级错误, 服务器崩溃.\n#data_sync_retry
+    = off\n\n\n#------------------------------------------------------------------------------\n#
+    配置文件管理\n#------------------------------------------------------------------------------\n\n#
+    These options allow settings to be loaded from files other than the\n# default postgresql.conf.
+    \ Note that these are directives, not variable\n# assignments, so they can usefully
+    be given more than once.\n\n# 设置配置文件引入的目录 如 conf.d , 以 .conf 为后缀\n#include_dir =
+    '...'\n# 当配置文件 include 引入失败时, 只记录错误信息\n#include_if_exists = '...'\n# 引入一个指定的配置文件\n#include
+    = '...'\n\n\n#------------------------------------------------------------------------------\n#
+    自定义的配置项\n#------------------------------------------------------------------------------\n\n#
+    Add settings for extensions here\n#shared_preload_libraries = 'xxx'"
+
